@@ -1,387 +1,381 @@
 ---
-title: Core
+title: 核心
 description: This doc describes core `jotai` bundle.
 nav: 2.01
 ---
 
-- [Basic APIs](#basic-apis)
-- [Additional APIs](#additional-apis)
+- [基础 APIs](#基础-ap-is)
+- [额外 APIs](#额外-ap-is)
 
-## Basic APIs
+## 基础 APIs
 
 ## atom
 
-The `atom` function is to create an atom config.
-We call it "atom config" as it's just a definition and it doesn't yet hold a value.
-We may also call it just "atom" if the context is clear.
+`atom` 功能是创建一个原子配置。
+我们称它为“原子配置”，因为它只是一个定义，还没有任何值。
+如果上下文清楚，我们也可以将其称为“原子”。
 
-An atom config is an immutable object. The atom config object doesn't hold a value. The atom value exists in a store.
+原子配置是一个不可变的对象。 原子配置对象没有值。 原子值存在于 store 中。
 
-To create a primitive atom (config), all you need is to provide an initial value.
+要创建原始原子 (config)，您只需提供一个初始值即可。
 
 ```js
-import { atom } from 'jotai'
+import { atom } from "jotai";
 
-const priceAtom = atom(10)
-const messageAtom = atom('hello')
-const productAtom = atom({ id: 12, name: 'good stuff' })
+const priceAtom = atom(10);
+const messageAtom = atom("hello");
+const productAtom = atom({ id: 12, name: "good stuff" });
 ```
 
-You can also create derived atoms. We have three patterns:
+您还可以创建派生原子。 我们有三种模式：
 
-- Read-only atom
-- Write-only atom
-- Read-Write atom
+- 只读 atom
+- 只写 atom
+- 读写 atom
 
-To create derived atoms, we pass a read function and an optional write function.
+为了创建派生原子，我们传递了一个读取函数和一个可选的写入函数。
 
 ```js
-const readOnlyAtom = atom((get) => get(priceAtom) * 2)
+const readOnlyAtom = atom((get) => get(priceAtom) * 2);
 const writeOnlyAtom = atom(
-  null, // it's a convention to pass `null` for the first argument
+  null, // 为第一个参数传递 `null` 是一种惯例
   (get, set, update) => {
-    // `update` is any single value we receive for updating this atom
-    set(priceAtom, get(priceAtom) - update.discount)
+    // `update` 是我们收到的用于更新此原子的任何单个值
+    set(priceAtom, get(priceAtom) - update.discount);
   }
-)
+);
 const readWriteAtom = atom(
   (get) => get(priceAtom) * 2,
   (get, set, newPrice) => {
-    set(priceAtom, newPrice / 2)
-    // you can set as many atoms as you want at the same time
+    set(priceAtom, newPrice / 2);
+    // 您可以同时设置任意数量的原子
   }
-)
+);
 ```
 
-`get` in the read function is to read the atom value.
-It's reactive and read dependencies are tracked.
+read 函数中的 `get` 是读取原子值。
+它是响应式的，并且会跟踪读取依赖项。
 
-`get` in the write function is also to read atom value, but it's not tracked.
-Furthermore, it can't read unresolved async values in Jotai v1 API.
-For async behavior, please refer to the [async](../guides/async.mdx) doc.
+write 函数中的 `get` 也是读取 atom 的值，但是没有被跟踪。
+此外，它无法读取 Jotai v1 API 中未解析的异步值。
+对于异步行为，请参阅 [async](../guides/async.mdx) 文档。
 
-`set` in the write function is to write atom value.
-It will invoke the write function of the target atom.
+write 函数中的`set`是写入原子值。
+它将调用目标原子的写入函数。
 
-**Note**: Atom configs can be created anywhere, but referential equality is important.
-They can be created dynamically too.
-To create an atom in render function, `useMemo` or `useRef` is required to get a stable reference. If in doubt about using `useMemo` or `useRef` for memoization, use `useMemo`.
+**注意**：Atom 配置可以在任何地方创建，但引用相等很重要。
+它们也可以动态创建。
+要在渲染函数中创建原子，需要使用 `useMemo` 或 `useRef` 来获得稳定的引用。 如果对使用 `useMemo` 或 `useRef` 进行 memoization 有疑问，请使用 `useMemo`。
 
 ```js
 const Component = ({ value }) => {
-  const valueAtom = useMemo(() => atom({ value }), [value])
+  const valueAtom = useMemo(() => atom({ value }), [value]);
   // ...
-}
+};
 ```
 
-### Signatures
+### 签名
 
 ```ts
-// primitive atom
-function atom<Value>(initialValue: Value): PrimitiveAtom<Value>
+// 原始 atom
+function atom<Value>(initialValue: Value): PrimitiveAtom<Value>;
 
-// read-only atom
-function atom<Value>(read: (get: Getter) => Value | Promise<Value>): Atom<Value>
+// 只读 atom
+function atom<Value>(
+  read: (get: Getter) => Value | Promise<Value>
+): Atom<Value>;
 
-// writable derived atom
+// 可写派生 atom
 function atom<Value, Update>(
   read: (get: Getter) => Value | Promise<Value>,
   write: (get: Getter, set: Setter, update: Update) => void | Promise<void>
-): WritableAtom<Value, Update>
+): WritableAtom<Value, Update>;
 
-// write-only derived atom
+// 只写派生 atom
 function atom<Value, Update>(
   read: Value,
   write: (get: Getter, set: Setter, update: Update) => void | Promise<void>
-): WritableAtom<Value, Update>
+): WritableAtom<Value, Update>;
 ```
 
-- `initialValue`: the initial value that the atom will return until its value is changed.
-- `read`: a function that's called on every re-render. The signature of `read` is `(get) => Value | Promise<Value>`, and `get` is a function that takes an atom config and returns its value stored in Provider as described below. Dependency is tracked, so if `get` is used for an atom at least once, the `read` will be reevaluated whenever the atom value is changed.
-- `write`: a function mostly used for mutating atom's values, for a better description; it gets called whenever we call the second value of the returned pair of `useAtom`, the `useAtom()[1]`. The default value of this function in the primitive atom will change the value of that atom. The signature of `write` is `(get, set, update) => void | Promise<void>`. `get` is similar to the one described above, but it doesn't track the dependency. `set` is a function that takes an atom config and a new value which then updates the atom value in Provider. `update` is an arbitrary value that we receive from the updating function returned by `useAtom` described below.
+- `initialValue`：原子将返回的初始值，直到它的值被改变。
+- `read`：在每次重新渲染时调用的函数。 `read` 的签名是 `(get) => Value | Promise<Value>` 和 `get` 是一个函数，它接受一个原子配置并返回其存储在 Provider 中的值，如下所述。 跟踪依赖关系，因此如果对原子至少使用一次 `get` ，则每当原子值更改时都会重新取值 `read` 。
+- `write`：主要用于改变原子值的函数，以便更好地描述； 每当我们调用返回的 `useAtom` 对的第二个值，即 `useAtom()[1]` 时，它就会被调用。 原始原子中此函数的默认值将更改该原子的值。 `write` 的签名是 `(get, set, update) => void | Promise<void>`。 `get` 与上面描述的类似，但它不跟踪依赖关系。 `set` 是一个函数，它接受一个原子配置和一个新值，然后更新 Provider 中的原子值。 `update` 是我们从下面描述的 `useAtom` 返回的更新函数中接收到的任意值。
 
 ```js
-const primitiveAtom = atom(initialValue)
-const derivedAtomWithRead = atom(read)
-const derivedAtomWithReadWrite = atom(read, write)
-const derivedAtomWithWriteOnly = atom(null, write)
+const primitiveAtom = atom(initialValue);
+const derivedAtomWithRead = atom(read);
+const derivedAtomWithReadWrite = atom(read, write);
+const derivedAtomWithWriteOnly = atom(null, write);
 ```
 
-There are two kinds of atoms: a writable atom and a read-only atom. Primitive atoms are always writable. Derived atoms are writable if the `write` is specified. The `write` of primitive atoms is equivalent to the `setState` of `React.useState`.
+有两种原子：可写原子和只读原子。 原始原子总是可写的。 如果指定了 `write`，派生原子是可写的。 原始原子的 `write` 相当于 `React.useState` 的 `setState` 。
 
-### `debugLabel` property
+### `debugLabel` 属性
 
-The created atom config can have an optional property `debugLabel`. The debug label is used to display the atom in debugging. See [Debugging guide](../guides/debugging.mdx) for more information.
+创建的原子配置可以有一个可选属性 `debugLabel`。 调试标签用于在调试中显示原子。 有关详细信息，请参阅 [调试指南](../guides/debugging.mdx)。
 
-Note: While, the debug labels don’t have to be unique, it’s generally recommended to make them distinguishable.
+注意：虽然调试标签不必是唯一的，但通常建议使它们易于区分。
 
-### `onMount` property
+### `onMount` 属性
 
-The created atom config can have an optional property `onMount`. `onMount` is a function which takes a function `setAtom` and returns `onUnmount` function optionally.
+创建的原子配置可以有一个可选属性 `onMount`。 `onMount` 是一个接受函数 `setAtom` 并可选地返回 `onUnmount` 函数的函数。
 
-The `onMount` function is called when the atom is first used in a provider, and `onUnmount` is called when it’s no longer used. In some edge cases, an atom can be unmounted and then mounted immediately.
+`onMount` 函数在 atom 首次在提供者中使用时被调用，而 `onUnmount` 在不再使用时被调用。 在一些边缘情况下，一个原子可以被卸载然后立即安装。
 
 ```js
 const anAtom = atom(1)
 anAtom.onMount = (setAtom) => {
   console.log('atom is mounted in provider')
-  setAtom(c => c + 1) // increment count on mount
-  return () => { ... } // return optional onUnmount function
+  setAtom(c => c + 1) // 增加挂载计数
+  return () => { ... } // 返回可选的 onUnmount 函数
 }
 ```
 
-Calling `setAtom` function will invoke the atom’s `write`. Customizing `write` allows changing the behavior.
+调用 `setAtom` 函数将调用原子的 `write`。 自定义 `write` 允许改变行为。
 
 ```js
-const countAtom = atom(1)
+const countAtom = atom(1);
 const derivedAtom = atom(
   (get) => get(countAtom),
   (get, set, action) => {
-    if (action.type === 'init') {
-      set(countAtom, 10)
-    } else if (action.type === 'inc') {
-      set(countAtom, (c) => c + 1)
+    if (action.type === "init") {
+      set(countAtom, 10);
+    } else if (action.type === "inc") {
+      set(countAtom, (c) => c + 1);
     }
   }
-)
+);
 derivedAtom.onMount = (setAtom) => {
-  setAtom({ type: 'init' })
-}
+  setAtom({ type: "init" });
+};
 ```
 
 ## useAtom
 
-The `useAtom` hook is to read an atom value in the state.
-The state can be seen as a WeakMap of atom configs and atom values.
+`useAtom` hook 用于读取状态中的原子值。
+状态可以看作是原子配置和原子值的 WeakMap。
 
-The `useAtom` hook returns the atom value and an update function as a tuple,
-just like React's `useState`.
-It takes an atom config created with `atom()`.
+`useAtom` hook 以元组形式返回原子值和更新函数，
+就像 React 的 `useState` 一样。
+它需要一个使用 `atom()` 创建的原子配置。
 
-Initially, there is no value associated with the atom.
-Only once the atom is used via `useAtom`,
-does the initial value get stored in the state.
-If the atom is a derived atom, the read function is called to compute the initial value.
-When an atom is no longer used, meaning all the components using it are unmounted,
-and the atom config no longer exists, the value in the state is garbage collected.
+最初，没有与原子关联的值。
+只有通过 `useAtom` 使用原子后，初始值才会存储在状态中。
+如果原子是派生原子，则调用读取函数来计算初始值。
+当一个原子不再被使用时，意味着所有使用它的组件都被卸载，并且原子配置不再存在，状态中的值被垃圾收集。
 
 ```js
-const [value, setValue] = useAtom(anAtom)
+const [value, setValue] = useAtom(anAtom);
 ```
 
-The `setValue` takes just one argument, which will be passed
-to the third argument of the write function of the atom.
-The behavior depends on how the write function is implemented.
+`setValue` 只接受一个参数，它将被传递给原子的 write 函数的第三个参数。
+行为取决于写入函数的实现方式。
 
-**Note:** as mentioned in the _atom_ section, you have to take care of handling the reference of your atom, otherwise it may enter an infinite loop
+**注意**：如 _atom_ 部分所述，您必须注意处理原子的引用，否则它可能会进入无限循环
 
 ```js
-const stableAtom = atom(0)
+const stableAtom = atom(0);
 const Component = () => {
-  const [atomValue] = useAtom(atom(0)) // This will cause an infinite loop
-  const [atomValue] = useAtom(stableAtom) // This is fine
+  const [atomValue] = useAtom(atom(0)); // 这将导致无限循环
+  const [atomValue] = useAtom(stableAtom); // 这可以
   const [derivedAtomValue] = useAtom(
     useMemo(
-      // This is also fine
+      // 这也可以
       () => atom((get) => get(stableAtom) * 2),
       []
     )
-  )
-}
+  );
+};
 ```
 
-**Note**: Remember that React is responsible for calling your component. Meaning it has to be idempotent, ready to be called multiple times. You will often see an extra re-render even if no props or atoms have changed. An extra re-render without a commit is an expected behavior. It is actually the default behavior of useReducer in React 18.
+**注意**：请记住，React 负责调用您的组件。 这意味着它必须是幂等的，可以被多次调用。 即使没有 props 或 atoms 发生变化，你也会经常看到额外的重新渲染。 没有提交的额外重新渲染是预期的行为。 这实际上是 React 18 中 useReducer 的默认行为。
 
-### Signatures
+### 签名
 
 ```ts
-// primitive or writable derived atom
+// 原始或可写派生原子
 function useAtom<Value, Update>(
   atom: WritableAtom<Value, Update>,
   scope?: Scope
-): [Value, SetAtom<Update>]
+): [Value, SetAtom<Update>];
 
-// read-only atom
-function useAtom<Value>(atom: Atom<Value>, scope?: Scope): [Value, never]
+// 只读原子
+function useAtom<Value>(atom: Atom<Value>, scope?: Scope): [Value, never];
 ```
 
-The useAtom hook is to read an atom value stored in the Provider. It returns the atom value and an updating function as a tuple, just like useState. It takes an atom config created with `atom()`. Initially, there is no value stored in the Provider. The first time the atom is used via `useAtom`, it will add an initial value in the Provider. If the atom is a derived atom, the read function is executed to compute an initial value. When an atom is no longer used, meaning all the components using it are unmounted, and the atom config no longer exists, the value is removed from the Provider.
+useAtom hook 是读取 Provider 中存储的一个原子值。 它以元组的形式返回原子值和更新函数，就像 `useState` 一样。 它需要一个使用 `atom()` 创建的原子配置。 最初，Provider 中没有存储任何值。 第一次通过 `useAtom` 使用 atom 时，它会在 Provider 中添加一个初始值。 如果原子是派生原子，则执行读取函数以计算初始值。 当一个原子不再被使用时，意味着使用它的所有组件都被卸载，并且原子配置不再存在，该值将从 Provider 中删除。
 
 ```js
-const [value, setValue] = useAtom(anAtom)
+const [value, setValue] = useAtom(anAtom);
 ```
 
-The `setValue` takes one argument, which will be passed to the third argument of writeFunction of the atom. The behavior depends on how the writeFunction is implemented.
+`setValue` 接受一个参数，该参数将传递给原子的 writeFunction 的第三个参数。 行为取决于 writeFunction 的实现方式。
 
 ---
 
-## Notes
+## 笔记
 
-### How atom dependency works
+### 原子依赖性如何工作
 
-To begin with, let's explain this. In the current implementation, every time we invoke the "read" function, we refresh the dependencies and dependents. For example, If A depends on B, it means that B is a dependency of A, and A is a dependent of B.
+首先，让我们解释一下。 在当前的实现中，每次调用 "read" 函数时，我们都会刷新依赖项和从属项。 例如，如果 A 依赖于 B，则意味着 B 是 A 的依赖项，A 是 B 的依赖项。
 
 ```js
-const uppercaseAtom = atom((get) => get(textAtom).toUpperCase())
+const uppercaseAtom = atom((get) => get(textAtom).toUpperCase());
 ```
 
-The read function is the first parameter of the atom.
-The dependency will initially be empty. On first use, we run the read function and know that `uppercaseAtom` depends on `textAtom`. `textAtom` has a dependency on `uppercaseAtom`. So, add `uppercaseAtom` to the dependents of `textAtom`.
-When we re-run the read function (because its dependency `textAtom` is updated),
-the dependency is created again, which is the same in this case. We then remove stale dependents and replace with the latest one.
+读取函数是原子的第一个参数。
+依赖最初是空的。 第一次使用时，我们运行读取函数并知道 `uppercaseAtom` 依赖于 `textAtom`。 `textAtom` 依赖于 `uppercaseAtom`。 因此，将 `uppercaseAtom` 添加到 `textAtom` 的依赖项中。
+当我们重新运行读取函数时（因为它的依赖项 `textAtom` 已更新），依赖项会再次创建，在本例中也是如此。 然后我们删除陈旧的依赖项并替换为最新的依赖项。
 
-### Atoms can be created on demand
+### 原子可以按需创建
 
-While the basic examples here show defining atoms globally outside components,
-there's no restrictions about where or when we can create an atom.
-As long as we remember that atoms are identified by their object referential identity,
-we can create them anytime.
+虽然这里的基本示例显示了在组件外部全局定义原子，但对于我们可以在何处或何时创建原子没有任何限制。
+只要我们记得原子是由它们的对象引用身份标识的，我们就可以随时创建它们。
 
-If you create atoms in render functions, you would typically want to use
-a hook like `useRef` or `useMemo` for memoization. If not, the atom would be re-created each time the component renders.
+如果您在渲染函数中创建原子，您通常希望使用像 `useRef` 或 `useMemo` 这样的 hook 来进行 memoization。 否则，每次组件渲染时都会重新创建原子。
 
-You can create an atom and store it with `useState` or even in another atom.
-See an example in [issue #5](https://github.com/pmndrs/jotai/issues/5).
+您可以创建一个原子并将其存储在 `useState` 中，甚至可以存储在另一个原子中。
+请参阅[问题 #5](https://github.com/pmndrs/jotai/issues/5) 中的示例。
 
-You can cache atoms somewhere globally.
-See [this example](https://twitter.com/dai_shi/status/1317653548314718208) or
-[that example](https://github.com/pmndrs/jotai/issues/119#issuecomment-706046321).
+您可以在全局某处缓存原子。
+请参阅[此示例](https://twitter.com/dai_shi/status/1317653548314718208) 或
+[那个例子](https://github.com/pmndrs/jotai/issues/119#issuecomment-706046321)。
 
-Check [`atomFamily`](../api/utils.mdx#atom-family) in utils for parameterized atoms.
+检查参数化原子的 utils 中的 [`atomFamily`](../api/utils.mdx#atom-family)。
 
-## Additional APIs
+## 额外 APIs
 
 ## Provider
 
-The `Provider` component is to provide state for a component sub tree.
-Multiple Providers can be used for multiple subtrees, and they can even be nested.
-This works just like React Context.
+`Provider` 组件是为组件子树提供状态。
+多个 Provider 可以用于多个子树，甚至可以嵌套。
+这就像 React 上下文一样工作。
 
-If an atom is used in a tree without a Provider,
-it will use the default state. This is so-called provider-less mode.
+如果在没有 Provider 的树中使用原子，它将使用默认状态。 这就是所谓的无提供者模式。
 
-Providers are useful for three reasons:
+Provider 之所以有用，有以下三个原因：
 
-1. To provide a different state for each sub tree.
-2. To accept initial values of atoms.
-3. To clear all atoms by remounting.
+1. 为每个子树提供不同的状态。
+2. 接受原子的初始值。
+3. 通过重新安装清除所有原子。
 
 ```jsx
 const SubTree = () => (
   <Provider>
     <Child />
   </Provider>
-)
+);
 ```
 
-### Signatures
+### 签名
 
 ```ts
 const Provider: React.FC<{
-  initialValues?: Iterable<readonly [AnyAtom, unknown]>
-  scope?: Scope
-}>
+  initialValues?: Iterable<readonly [AnyAtom, unknown]>;
+  scope?: Scope;
+}>;
 ```
 
-Atom configs don't hold values. Atom values reside in separate stores. A Provider is a component that contains a store and provides atom values under the component tree. A Provider works like React context provider. If you don't use a Provider, it works as provider-less mode with a default store. A Provider will be necessary if we need to hold different atom values for different component trees. Provider also has some capabilities described below, which doesn't exist in the provider-less mode.
+Atom 配置不保存值。 原子值驻留在单独的存储中。 Provider 是一个组件，它包含一个存储并在组件树下提供原子值。 Provider 的工作方式类似于 React context provider。 如果您不使用提 Provider，它会以无 Provider 模式使用默认 store 。 如果我们需要为不同的组件树保存不同的原子值，则需要提供者。 Provider 还具有下面描述的一些功能，这些功能在 无 Provider 模式下不存在。
 
 ```jsx
 const Root = () => (
   <Provider>
     <App />
   </Provider>
-)
+);
 ```
 
-### `initialValues` prop
+### `initialValues` 属性
 
-A Provider accepts an optional prop `initialValues`, with which you can specify
-some initial atom values.
-The use cases of this are testing and server side rendering.
+Provider 接受一个可选的 prop `initialValues`，您可以使用它指定一些初始原子值。
+其用例是测试和服务器端渲染。
 
-#### Example
+#### 示例
 
 ```jsx
 const TestRoot = () => (
   <Provider
     initialValues={[
       [atom1, 1],
-      [atom2, 'b'],
-    ]}>
+      [atom2, "b"],
+    ]}
+  >
     <Component />
   </Provider>
-)
+);
 ```
 
 #### TypeScript
 
-The `initialValues` prop is not type friendly.
-We can mitigate it by using a helper function.
+`initialValues` 属性不是类型友好的。
+我们可以通过使用辅助函数来缓解它。
 
 ```ts
 const createInitialValues = () => {
-  const initialValues: (readonly [Atom<unknown>, unknown])[] = []
-  const get = () => initialValues
+  const initialValues: (readonly [Atom<unknown>, unknown])[] = [];
+  const get = () => initialValues;
   const set = <Value>(anAtom: Atom<Value>, value: Value) => {
-    initialValues.push([anAtom, value])
-  }
-  return { get, set }
-}
+    initialValues.push([anAtom, value]);
+  };
+  return { get, set };
+};
 ```
 
-### `scope` prop
+### `scope` 属性
 
-A Provider accepts an optional prop `scope` that you can use for a scoped Provider.
-When using atoms with a scope, the provider with the same scope is used.
-The recommendation for the scope value is a unique symbol.
-The primary use case of scope is for library usage.
+Provider 接受一个可选的 prop `scope`，您可以将其用于范围内的 Provider。
+当使用具有 scope 的原子时，使用具有相同作用域的 Provider。
+scope 值的建议是一个独特的符号。
+scope 的主要使用在库中。
 
-#### Example
+#### 示例
 
 ```jsx
-const myScope = Symbol()
+const myScope = Symbol();
 
-const anAtom = atom('')
+const anAtom = atom("");
 
 const LibraryComponent = () => {
-  const [value, setValue] = useAtom(anAtom, myScope)
+  const [value, setValue] = useAtom(anAtom, myScope);
   // ...
-}
+};
 
 const LibraryRoot = ({ children }) => (
   <Provider scope={myScope}>{children}</Provider>
-)
+);
 ```
 
 ## useSetAtom
 
 ```jsx
-const switchAtom = atom(false)
+const switchAtom = atom(false);
 
 const SetTrueButton = () => {
-  const setCount = useSetAtom(switchAtom)
-  const setTrue = () => setCount(true)
+  const setCount = useSetAtom(switchAtom);
+  const setTrue = () => setCount(true);
 
   return (
     <div>
       <button onClick={setTrue}>Set True</button>
     </div>
-  )
-}
+  );
+};
 
 const SetFalseButton = () => {
-  const setCount = useSetAtom(switchAtom)
-  const setFalse = () => setCount(false)
+  const setCount = useSetAtom(switchAtom);
+  const setFalse = () => setCount(false);
 
   return (
     <div>
       <button onClick={setFalse}>Set False</button>
     </div>
-  )
-}
+  );
+};
 
 export default function App() {
-  const state = useAtomValue(switchAtom)
+  const state = useAtomValue(switchAtom);
 
   return (
     <div>
@@ -389,39 +383,39 @@ export default function App() {
       <SetTrueButton />
       <SetFalseButton />
     </div>
-  )
+  );
 }
 ```
 
-In case you need to update a value of an atom without reading it, you can use `useSetAtom()`.
+如果你需要在不读取原子的情况下更新它的值，你可以使用 `useSetAtom()` 。
 
-This is especially useful when the performance is a concern, as the `const [, setValue] = useAtom(valueAtom)` will cause unnecessary rerenders on each `valueAtom` update.
+当性能是一个问题时，这特别有用，因为 `const [, setValue] = useAtom(valueAtom)` 会在每次 `valueAtom` 更新时导致不必要的重新渲染。
 
 ## useAtomValue
 
 ```jsx
-const countAtom = atom(0)
+const countAtom = atom(0);
 
 const Counter = () => {
-  const setCount = useSetAtom(countAtom)
-  const count = useAtomValue(countAtom)
+  const setCount = useSetAtom(countAtom);
+  const count = useAtomValue(countAtom);
 
   return (
     <>
       <div>count: {count}</div>
       <button onClick={() => setCount(count + 1)}>+1</button>
     </>
-  )
-}
+  );
+};
 ```
 
-Similar to the `useSetAtom` hook, `useAtomValue` allows you to access a read-only atom.
+与 `useSetAtom` hook `类似，useAtomValue` 允许您访问只读原子。
 
-### Some more notes about atoms
+### 关于原子的更多注释
 
-- If you create a primitive atom, it will use predefined read/write functions to emulate `useState` behavior.
-- If you create an atom with read/write functions, they can provide any behavior with some restrictions as follows.
-- `read` function will be invoked during React render phase, so the function has to be pure. What is pure in React is described [here](https://gist.github.com/sebmarkbage/75f0838967cd003cd7f9ab938eb1958f).
-- `write` function will be invoked where you called initially and in useEffect for following invocations. So, you shouldn't call `write` in render.
-- When an atom is initially used with `useAtom`, it will invoke `read` function to get the initial value, this is recursive process. If an atom value exists in Provider, it will be used instead of invoking `read` function.
-- Once an atom is used (and stored in Provider), it's value is only updated if its dependencies are updated (including updating directly with useAtom).
+- 如果您创建一个原始原子，它将使用预定义的 读/写 函数来模拟 `useState` 行为。
+- 如果你创建一个具有 读/写 功能的原子，它们可以提供任何行为，但有一些限制，如下所示。
+- `read` 函数将在 React 渲染阶段调用，因此该函数必须是纯函数。 [此处](https://gist.github.com/sebmarkbage/75f0838967cd003cd7f9ab938eb1958f) 描述了 React 中的纯内容。
+- `write` 函数将在您最初调用的地方调用，并在 useEffect 中调用以进行后续调用。 所以，你不应该在渲染中调用 `write`。
+- 当一个原子最初使用 `useAtom` 时，它会调用 `read` 函数来获取初始值，这是递归过程。 如果 Provider 中存在原子值，它将被使用而不是调用 `read` 函数。
+- 一旦使用了一个原子（并存储在 Provider 中），它的值只有在更新其依赖项时才会更新（包括直接使用 useAtom 更新）。
