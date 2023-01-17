@@ -9577,6 +9577,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"immer@npm:^9.0.18":
+  version: 9.0.18
+  resolution: "immer@npm:9.0.18"
+  checksum: 85b3153dd01fce73c40591d0d6d7cd95878dab49f8ec4744c044adac05e0dab847b30c26259c478a5f87f974897be6df2780ff5bf86c8a0a27578fdeb300eb10
+  languageName: node
+  linkType: hard
+
 "immer@npm:^9.0.7":
   version: 9.0.15
   resolution: "immer@npm:9.0.15"
@@ -10381,6 +10388,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"jotai-immer@npm:^0.1.0":
+  version: 0.1.0
+  resolution: "jotai-immer@npm:0.1.0"
+  peerDependencies:
+    immer: "*"
+    jotai: "*"
+    react: ">=17.0.0"
+  checksum: 08f0f336ba0b4f3658ef74e57d77965c229312508976aff747b288274ef13e84e5ae342efd78f311be97a220ce13e6b8f1f9cdefd7eccdaccd310061046aac6f
+  languageName: node
+  linkType: hard
+
 "jotai-website@workspace:.":
   version: 0.0.0-use.local
   resolution: "jotai-website@workspace:."
@@ -10401,7 +10419,9 @@ __metadata:
     gatsby-plugin-sitemap: ^5.23.0
     gatsby-plugin-use-dark-mode: ^1.5.0
     gatsby-source-filesystem: ^4.23.0
+    immer: ^9.0.18
     jotai: ^1.8.4
+    jotai-immer: ^0.1.0
     just-kebab-case: ^4.1.1
     just-throttle: ^4.1.1
     postcss: ^8.4.16
